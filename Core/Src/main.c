@@ -41,6 +41,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -51,12 +53,15 @@ uint32_t last_flank_causing_exti;
 
 uint32_t last_managed_exti;
 
+volatile uint32_t clock_half_seconds;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 void uart_print_menu(void);
 int uart_get_menu_choice(void);
@@ -110,8 +115,44 @@ void uart_print_bad_choice(void)
 
 void clock_mode(void)
 {
+	HAL_TIM_Base_Start_IT(&htim2);
+
+	int hours = 23;
+	int minutes = 59;
+	int seconds = 45;
+	uint32_t last_handled_half_second = clock_half_seconds;
+	int colon_on = 0;
+	int b1_pressed;
     while (1)
     {
+    	static uint32_t last_colon_half_second = 0;
+
+    	if (clock_half_seconds != last_colon_half_second)
+    	{
+    	    last_colon_half_second = clock_half_seconds;
+    	    colon_on = !colon_on;
+    	}
+    	b1_pressed =
+    	    GPIO_PIN_RESET == HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+    	if (clock_half_seconds - last_handled_half_second >= 2)
+    	{
+    	    last_handled_half_second += 2;
+    	    seconds++;
+    	    if (seconds >= 60)
+    	    {
+    	        seconds = 0;
+    	        minutes++;
+    	    }
+    	    if (minutes >= 60)
+    	    {
+    	        minutes = 0;
+    	        hours++;
+    	    }
+    	    if (hours >= 24)
+    	    {
+    	        hours = 0;
+    	    }
+    	}
     }
 }
 
@@ -175,6 +216,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -258,6 +300,51 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 7999;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
 }
 
 /**
@@ -378,6 +465,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     {
         button_exti_count++;
         last_flank_causing_exti = HAL_GetTick();
+    }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM2)
+    {
+    	clock_half_seconds++;
+
     }
 }
 /* USER CODE END 4 */
