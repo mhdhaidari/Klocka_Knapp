@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include "quad_sseg.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -123,8 +124,29 @@ void clock_mode(void)
 	uint32_t last_handled_half_second = clock_half_seconds;
 	int colon_on = 0;
 	int b1_pressed;
+	int digit1;
+	int digit2;
+	int digit3;
+	int digit4;
     while (1)
     {
+    	b1_pressed =
+    	    GPIO_PIN_RESET == HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+    	if (b1_pressed)
+    	{
+    	    digit1 = hours / 10;
+    	    digit2 = hours % 10;
+    	    digit3 = minutes / 10;
+    	    digit4 = minutes % 10;
+    	}
+    	else
+    	{
+    	    digit1 = minutes / 10;
+    	    digit2 = minutes % 10;
+    	    digit3 = seconds / 10;
+    	    digit4 = seconds % 10;
+    	}
+    	qs_put_digits(digit1, digit2, digit3, digit4, colon_on);
     	static uint32_t last_colon_half_second = 0;
 
     	if (clock_half_seconds != last_colon_half_second)
@@ -158,6 +180,7 @@ void clock_mode(void)
 
 void button_mode(void)
 {
+
     int b1_pressed;
 
     while (1)
@@ -181,6 +204,8 @@ void button_mode(void)
     	}
         b1_pressed =
             GPIO_PIN_RESET == HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
+        qs_put_big_num(b1_pressed ? button_exti_count
+                                         : button_debounced_count);
 
     }
 }
