@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define BOUNCE_DELAY_MS 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,6 +46,10 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint16_t button_exti_count;
 uint16_t button_debounced_count;
+
+uint32_t last_flank_causing_exti;
+
+uint32_t last_managed_exti;
 
 /* USER CODE END PV */
 
@@ -117,8 +121,23 @@ void button_mode(void)
 
     while (1)
     {
-        button_debounced_count = button_exti_count;
+    	uint32_t now = HAL_GetTick();
 
+    	if (last_flank_causing_exti != last_managed_exti)
+    	{
+    		if ((now - last_flank_causing_exti) >= BOUNCE_DELAY_MS)
+    		{
+    		    int pressed =
+    		        GPIO_PIN_RESET == HAL_GPIO_ReadPin(MY_BTN_GPIO_Port, MY_BTN_Pin);
+
+    		    if (pressed)
+    		    {
+    		        button_debounced_count++;
+    		    }
+
+    		    last_managed_exti = last_flank_causing_exti;
+    		}
+    	}
         b1_pressed =
             GPIO_PIN_RESET == HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
 
@@ -358,6 +377,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     if (GPIO_Pin == MY_BTN_Pin)
     {
         button_exti_count++;
+        last_flank_causing_exti = HAL_GetTick();
     }
 }
 /* USER CODE END 4 */
